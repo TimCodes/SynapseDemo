@@ -1,0 +1,12 @@
+{
+  "bindings": [
+    {
+      "name": "message",
+      "type": "serviceBusTrigger",
+      "direction": "in",
+      "queueName": "demo-queue",
+      "connection": "ServiceBusConnection"
+    }
+  ],
+  "scriptFile": "../dist/servicebus-trigger/index.js"
+}

@@ -1,0 +1,25 @@
+{
+  "name": "kafka-consumer-service",
+  "version": "1.0.0",
+  "description": "Background service that consumes messages from Kafka",
+  "main": "src/consumer.js",
+  "scripts": {
+    "start": "node src/consumer.js",
+    "dev": "nodemon src/consumer.js"
+  },
+  "keywords": [
+    "kafka",
+    "consumer",
+    "service"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "dotenv": "^16.3.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
