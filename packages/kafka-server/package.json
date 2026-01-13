@@ -1,0 +1,31 @@
+{
+  "name": "@demo-app/kafka-server",
+  "version": "1.0.0",
+  "description": "Kafka server with preconfigured topics and consumer groups for demo application",
+  "private": true,
+  "scripts": {
+    "start": "docker-compose up -d",
+    "stop": "docker-compose down",
+    "restart": "docker-compose restart",
+    "logs": "docker-compose logs -f kafka",
+    "logs:all": "docker-compose logs -f",
+    "build": "docker-compose build",
+    "clean": "docker-compose down -v",
+    "init": "docker exec -it demo-kafka /usr/local/bin/init-kafka.sh",
+    "health": "docker exec -it demo-kafka /usr/local/bin/health-check.sh",
+    "topics:list": "docker exec -it demo-kafka kafka-topics --list --bootstrap-server localhost:9092",
+    "topics:describe": "docker exec -it demo-kafka kafka-topics --describe --topic demo-events --bootstrap-server localhost:9092",
+    "console:producer": "docker exec -it demo-kafka kafka-console-producer --topic demo-events --bootstrap-server localhost:9092",
+    "console:consumer": "docker exec -it demo-kafka kafka-console-consumer --topic demo-events --from-beginning --bootstrap-server localhost:9092",
+    "console:consumer:group1": "docker exec -it demo-kafka kafka-console-consumer --topic demo-events --group consumer-group-1 --bootstrap-server localhost:9092",
+    "console:consumer:group2": "docker exec -it demo-kafka kafka-console-consumer --topic demo-events --group consumer-group-2 --bootstrap-server localhost:9092"
+  },
+  "keywords": [
+    "kafka",
+    "docker",
+    "demo",
+    "messaging"
+  ],
+  "author": "",
+  "license": "MIT"
+}
