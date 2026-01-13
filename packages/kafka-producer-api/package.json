@@ -1,0 +1,33 @@
+{
+  "name": "kafka-producer-api",
+  "version": "1.0.0",
+  "description": "REST API that publishes messages to Kafka using Koa",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "jest"
+  },
+  "keywords": [
+    "kafka",
+    "koa",
+    "producer",
+    "api"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "koa": "^2.15.0",
+    "koa-bodyparser": "^4.4.1",
+    "koa-router": "^12.0.1",
+    "joi": "^17.11.0",
+    "@koa/cors": "^5.0.0",
+    "kafkajs": "^2.2.4",
+    "dotenv": "^16.3.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "jest": "^29.7.0"
+  }
+}
