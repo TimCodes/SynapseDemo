@@ -1,0 +1,190 @@
+version: '3.8'
+
+services:
+  # Zookeeper - Required for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: synapse-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - synapse-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Kafka Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: synapse-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - synapse-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # Kafka Topic Initializer
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: synapse-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - synapse-network
+    command: >
+      bash -c "
+        echo 'Waiting for Kafka to be ready...' &&
+        kafka-topics --bootstrap-server kafka:29092 --list &&
+        echo 'Creating demo-events topic...' &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic demo-events --replication-factor 1 --partitions 3 &&
+        echo 'Topic created successfully!' &&
+        kafka-topics --bootstrap-server kafka:29092 --describe --topic demo-events
+      "
+
+  # Azurite - Local Azure Storage Emulator (for Azure Functions)
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: synapse-azurite
+    ports:
+      - "10000:10000"  # Blob service
+      - "10001:10001"  # Queue service
+      - "10002:10002"  # Table service
+    networks:
+      - synapse-network
+    command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --loose"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "10000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Kafka Producer API
+  kafka-producer-api:
+    build:
+      context: ./packages/kafka-producer-api
+      dockerfile: Dockerfile
+    container_name: synapse-kafka-producer
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_TOPIC: demo-events
+      LOG_LEVEL: info
+    networks:
+      - synapse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # Kafka Consumer Service
+  kafka-consumer-service:
+    build:
+      context: ./packages/kafka-consumer-service
+      dockerfile: Dockerfile
+    container_name: synapse-kafka-consumer
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    ports:
+      - "3002:3002"
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_TOPIC: demo-events
+      KAFKA_GROUP_ID: consumer-group-1
+      KAFKA_FROM_BEGINNING: "false"
+      HEALTH_CHECK_PORT: 3002
+      LOG_LEVEL: info
+    networks:
+      - synapse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  # Azure Function App
+  azure-function-app:
+    build:
+      context: ./packages/azure-function-app
+      dockerfile: Dockerfile
+    container_name: synapse-azure-functions
+    depends_on:
+      azurite:
+        condition: service_healthy
+    ports:
+      - "7071:80"
+    environment:
+      AzureWebJobsStorage: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;"
+      FUNCTIONS_WORKER_RUNTIME: node
+      ServiceBusConnection: "${SERVICE_BUS_CONNECTION_STRING:-}"
+    networks:
+      - synapse-network
+    restart: unless-stopped
+
+  # Service Bus Publisher API
+  servicebus-publisher:
+    build:
+      context: ./packages/servicebus-publisher
+      dockerfile: Dockerfile
+    container_name: synapse-servicebus-publisher
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      SERVICE_BUS_CONNECTION_STRING: "${SERVICE_BUS_CONNECTION_STRING:-}"
+      SERVICE_BUS_QUEUE_NAME: "${SERVICE_BUS_QUEUE_NAME:-demo-queue}"
+      LOG_LEVEL: info
+    networks:
+      - synapse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3003/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+networks:
+  synapse-network:
+    name: synapse-network
+    driver: bridge
+
+volumes:
+  zookeeper-data:
+  kafka-data:
+  azurite-data:
