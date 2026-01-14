@@ -60,7 +60,6 @@ echo ""
 echo -e "${YELLOW}[4/7] Deploying application services...${NC}"
 kubectl apply -f "$K8S_DIR/kafka-producer-api.yaml"
 kubectl apply -f "$K8S_DIR/kafka-consumer-service.yaml"
-kubectl apply -f "$K8S_DIR/azure-function-app.yaml"
 kubectl apply -f "$K8S_DIR/servicebus-publisher.yaml"
 echo ""
 
@@ -83,7 +82,6 @@ echo ""
 kubectl wait --for=condition=available --timeout=300s \
     deployment/kafka-producer-api \
     deployment/kafka-consumer-service \
-    deployment/azure-function-app \
     deployment/servicebus-publisher \
     -n demo-app
 
@@ -110,7 +108,6 @@ echo "To access the services, use port-forwarding:"
 echo ""
 echo "  kubectl port-forward -n demo-app svc/kafka-producer-api 3001:3001"
 echo "  kubectl port-forward -n demo-app svc/kafka-consumer-service 3002:3002"
-echo "  kubectl port-forward -n demo-app svc/azure-function-app 7071:80"
 echo "  kubectl port-forward -n demo-app svc/servicebus-publisher 3003:3003"
 echo ""
 

@@ -13,12 +13,12 @@ Successfully implemented comprehensive cloud deployment configurations for the S
 **Objective:** Provide Kubernetes manifests for deploying all services to any Kubernetes cluster
 
 **Deliverables:**
-- ✅ Complete Kubernetes manifest set (11 files)
+- ✅ Complete Kubernetes manifest set (10 files)
 - ✅ Namespace isolation (`demo-app`)
 - ✅ ConfigMap for non-sensitive configuration
-- ✅ Secret templates for Azure credentials
-- ✅ 4 Deployment manifests with health checks and resource limits
-- ✅ 4 Service manifests for network connectivity
+- ✅ Secret templates for Azure Service Bus credentials
+- ✅ 3 Deployment manifests with health checks and resource limits
+- ✅ 3 Service manifests for network connectivity
 - ✅ Ingress configuration for HTTP routing
 - ✅ Automated deployment script (`deploy.sh`)
 - ✅ Cleanup script (`cleanup.sh`)
@@ -30,7 +30,6 @@ Successfully implemented comprehensive cloud deployment configurations for the S
    - CPU and memory requests/limits for all services
    - Kafka Producer API: 128Mi-256Mi, 100m-500m CPU
    - Kafka Consumer: 128Mi-256Mi, 100m-500m CPU
-   - Azure Function App: 256Mi-512Mi, 200m-1000m CPU
    - Service Bus Publisher: 128Mi-256Mi, 100m-500m CPU
 
 2. **Health Monitoring:**
@@ -43,7 +42,8 @@ Successfully implemented comprehensive cloud deployment configurations for the S
    - Kafka Producer API: 2 replicas
    - Service Bus Publisher: 2 replicas
    - Kafka Consumer: 1 replica (stateful processing)
-   - Azure Function App: 1 replica
+
+**Note:** Azure Function App is deployed to Azure separately (see Story 6.2), not to Kubernetes.
 
 4. **Network Configuration:**
    - ClusterIP services for internal communication
@@ -59,13 +59,14 @@ k8s/
 ├── secret.yaml                    # Secret templates
 ├── kafka-producer-api.yaml        # Deployment + Service
 ├── kafka-consumer-service.yaml    # Deployment + Service
-├── azure-function-app.yaml        # Deployment + Service
 ├── servicebus-publisher.yaml      # Deployment + Service
 ├── ingress.yaml                   # HTTP routing
 ├── deploy.sh                      # Automated deployment
 ├── cleanup.sh                     # Resource cleanup
 └── README.md                      # Documentation (11KB)
 ```
+
+**Note:** Azure Function App is deployed to Azure via Bicep templates (see Story 6.2).
 
 ---
 
@@ -483,13 +484,12 @@ While Epic 6 is complete, potential future improvements include:
 
 ## Files Summary
 
-**Total Files Created:** 27 files
+**Total Files Created:** 26 files
 
-**Kubernetes (11 files):**
-- 7 YAML manifests
+**Kubernetes (10 files):**
+- 6 YAML manifests (3 deployments + 1 namespace + 1 configmap + 1 secret + 1 ingress)
 - 2 shell scripts
 - 1 README
-- 1 gitignore (implied)
 
 **Azure (15 files):**
 - 1 main Bicep template

@@ -15,9 +15,9 @@ The Kubernetes deployment includes:
 
 - **Namespace**: `demo-app` - Isolated namespace for all resources
 - **ConfigMap**: `synapse-config` - Non-sensitive configuration
-- **Secret**: `synapse-secrets` - Sensitive credentials (Azure Service Bus, Storage)
-- **4 Deployments**: One for each microservice
-- **4 Services**: ClusterIP services for internal communication
+- **Secret**: `synapse-secrets` - Sensitive credentials (Azure Service Bus)
+- **3 Deployments**: One for each microservice
+- **3 Services**: ClusterIP services for internal communication
 - **1 Ingress**: HTTP routing for external access (optional)
 
 ### Services Deployed
@@ -26,8 +26,9 @@ The Kubernetes deployment includes:
 |---------|----------|------|------|
 | kafka-producer-api | 2 | 3001 | ClusterIP |
 | kafka-consumer-service | 1 | 3002 | ClusterIP |
-| azure-function-app | 1 | 80 | ClusterIP |
 | servicebus-publisher | 2 | 3003 | ClusterIP |
+
+**Note:** Azure Function App is deployed to Azure separately (see `azure/` directory), not to Kubernetes.
 
 ## 📦 Resource Requirements
 
@@ -41,10 +42,6 @@ Each service has defined resource requests and limits:
 - Requests: 128Mi memory, 100m CPU
 - Limits: 256Mi memory, 500m CPU
 
-**azure-function-app:**
-- Requests: 256Mi memory, 200m CPU
-- Limits: 512Mi memory, 1000m CPU
-
 ## 🚀 Deployment
 
 ### Step 1: Build and Push Docker Images
@@ -55,13 +52,11 @@ Build all images and push to your container registry:
 # Build images
 docker build -t <your-registry>/kafka-producer-api:latest ./packages/kafka-producer-api
 docker build -t <your-registry>/kafka-consumer-service:latest ./packages/kafka-consumer-service
-docker build -t <your-registry>/azure-function-app:latest ./packages/azure-function-app
 docker build -t <your-registry>/servicebus-publisher:latest ./packages/servicebus-publisher
 
 # Push images
 docker push <your-registry>/kafka-producer-api:latest
 docker push <your-registry>/kafka-consumer-service:latest
-docker push <your-registry>/azure-function-app:latest
 docker push <your-registry>/servicebus-publisher:latest
 ```
 
@@ -71,7 +66,6 @@ Update the image references in the deployment files to point to your registry:
 
 - `kafka-producer-api.yaml`
 - `kafka-consumer-service.yaml`
-- `azure-function-app.yaml`
 - `servicebus-publisher.yaml`
 
 Replace `<your-registry>` with your actual container registry (e.g., `myregistry.azurecr.io`).
@@ -83,10 +77,11 @@ Edit `secret.yaml` and update with your actual Azure credentials:
 ```yaml
 stringData:
   SERVICE_BUS_CONNECTION_STRING: "Endpoint=sb://your-namespace.servicebus.windows.net/..."
-  AZURE_WEB_JOBS_STORAGE: "DefaultEndpointsProtocol=https;AccountName=..."
 ```
 
 **⚠️ Security Note**: Never commit actual secrets to version control. Use sealed-secrets, external secret managers (Azure Key Vault, AWS Secrets Manager), or CI/CD pipeline secrets instead.
+
+**Note:** Azure Storage configuration is not needed in Kubernetes deployment as Azure Functions run in Azure.
 
 ### Step 4: Deploy to Kubernetes
 
@@ -109,7 +104,6 @@ kubectl apply -f k8s/secret.yaml
 # Deploy services
 kubectl apply -f k8s/kafka-producer-api.yaml
 kubectl apply -f k8s/kafka-consumer-service.yaml
-kubectl apply -f k8s/azure-function-app.yaml
 kubectl apply -f k8s/servicebus-publisher.yaml
 
 # Deploy Ingress (optional)
@@ -153,9 +147,6 @@ kubectl port-forward -n demo-app svc/kafka-producer-api 3001:3001
 # Kafka Consumer Service
 kubectl port-forward -n demo-app svc/kafka-consumer-service 3002:3002
 
-# Azure Function App
-kubectl port-forward -n demo-app svc/azure-function-app 7071:80
-
 # Service Bus Publisher
 kubectl port-forward -n demo-app svc/servicebus-publisher 3003:3003
 ```
@@ -163,8 +154,9 @@ kubectl port-forward -n demo-app svc/servicebus-publisher 3003:3003
 Then access services at:
 - http://localhost:3001 (Kafka Producer)
 - http://localhost:3002/health (Kafka Consumer)
-- http://localhost:7071/api/process (Azure Function)
 - http://localhost:3003 (Service Bus Publisher)
+
+**Note:** Azure Function App is deployed to Azure (see `azure/` directory) and accessed via its Azure URL.
 
 ### Option 2: Ingress (Production)
 
@@ -178,7 +170,7 @@ kubectl get ingress -n demo-app synapse-ingress
 Access services at:
 - http://demo.local/api/producer
 - http://demo.local/api/consumer
-- http://demo.local/api/function
+- http://demo.local/api/servicebus
 - http://demo.local/api/servicebus
 
 **Note**: Update your `/etc/hosts` file or DNS to point `demo.local` to the ingress IP.
@@ -324,7 +316,6 @@ Or delete individual resources:
 ```bash
 kubectl delete -f k8s/kafka-producer-api.yaml
 kubectl delete -f k8s/kafka-consumer-service.yaml
-kubectl delete -f k8s/azure-function-app.yaml
 kubectl delete -f k8s/servicebus-publisher.yaml
 kubectl delete -f k8s/ingress.yaml
 kubectl delete -f k8s/configmap.yaml
@@ -349,12 +340,13 @@ kubectl delete -f k8s/namespace.yaml
 - `secret.yaml` - Sensitive credentials (template)
 - `kafka-producer-api.yaml` - Kafka Producer API deployment and service
 - `kafka-consumer-service.yaml` - Kafka Consumer Service deployment and service
-- `azure-function-app.yaml` - Azure Function App deployment and service
 - `servicebus-publisher.yaml` - Service Bus Publisher deployment and service
 - `ingress.yaml` - Ingress configuration for HTTP routing
 - `deploy.sh` - Automated deployment script
 - `cleanup.sh` - Cleanup script
 - `README.md` - This file
+
+**Note:** Azure Function App deployment is in the `azure/` directory.
 
 ## 🌐 Cloud-Specific Notes
 

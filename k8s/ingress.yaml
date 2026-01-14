@@ -28,13 +28,6 @@ spec:
             name: kafka-consumer-service
             port:
               number: 3002
-      - path: /api/function
-        pathType: Prefix
-        backend:
-          service:
-            name: azure-function-app
-            port:
-              number: 80
       - path: /api/servicebus
         pathType: Prefix
         backend:
