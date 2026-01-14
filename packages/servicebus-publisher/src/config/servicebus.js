@@ -1,5 +1,5 @@
 const { ServiceBusClient } = require('@azure/service-bus');
-const logger = require('./logger');
+const logger = require('../logger');
 
 class ServiceBusPublisher {
   constructor() {

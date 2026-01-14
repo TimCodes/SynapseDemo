@@ -1,5 +1,5 @@
 const { Kafka, logLevel } = require('kafkajs');
-const logger = require('./logger');
+const logger = require('../logger');
 
 class KafkaProducer {
   constructor() {

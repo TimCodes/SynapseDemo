@@ -4,7 +4,7 @@
  * Health Check Script for Synapse Demo Application
  * 
  * This script checks the health of all running services:
- * - Kafka Producer API (port 3000)
+ * - Kafka Producer API (port 3001)
  * - Kafka Consumer Service (port 3002)
  * - Azure Function App (port 7071)
  * - Service Bus Publisher (port 3003)
@@ -196,7 +196,7 @@ async function main() {
 
   // Check HTTP services
   const httpChecks = [
-    checkHttpHealth('Kafka Producer API', 'localhost', 3000),
+    checkHttpHealth('Kafka Producer API', 'localhost', 3001),
     checkHttpHealth('Kafka Consumer Service', 'localhost', 3002),
     checkHttpHealth('Service Bus Publisher', 'localhost', 3003),
     checkHttpHealth('Azure Function App', 'localhost', 7071, '/api/process')

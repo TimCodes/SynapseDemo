@@ -79,10 +79,55 @@ services:
       - synapse-network
     command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --loose"
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "10000"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:10000"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # SQL Server - Required for Service Bus Emulator
+  sql-server:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: synapse-sql-server-dev
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Pass@word123"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    networks:
+      - synapse-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Pass@word123 -Q 'SELECT 1' -C || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Azure Service Bus Emulator - Local Service Bus Emulator
+  servicebus-emulator:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    container_name: synapse-servicebus-emulator-dev
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    ports:
+      - "5672:5672"
+    environment:
+      ACCEPT_EULA: "Y"
+      SERVICEBUS_LOGGING_LEVEL: "Information"
+      SQL_SERVER: "sql-server"
+      MSSQL_SA_PASSWORD: "Pass@word123"
+      Config__SqlConnectionString: "Data Source=sql-server,1433;User Id=sa;Password=Pass@word123;Initial Catalog=master;Encrypt=false;TrustServerCertificate=true;"
+    volumes:
+      - ./packages/servicebus-emulator/Config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+    networks:
+      - synapse-network
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/emulator-ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   # Kafka Producer API - Development Mode with Volume Mounts
   kafka-producer-api:
@@ -104,6 +149,7 @@ services:
     volumes:
       - ./packages/kafka-producer-api/src:/app/src:ro
       - ./packages/kafka-producer-api/package.json:/app/package.json:ro
+      - /app/node_modules
     networks:
       - synapse-network
     command: npm run dev
@@ -132,6 +178,7 @@ services:
     volumes:
       - ./packages/kafka-consumer-service/src:/app/src:ro
       - ./packages/kafka-consumer-service/package.json:/app/package.json:ro
+      - /app/node_modules
     networks:
       - synapse-network
     command: npm run dev
@@ -143,14 +190,14 @@ services:
       dockerfile: Dockerfile
     container_name: synapse-azure-functions-dev
     depends_on:
-      azurite:
-        condition: service_healthy
+      - azurite
+      - servicebus-emulator
     ports:
       - "7071:80"
     environment:
       AzureWebJobsStorage: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;"
       FUNCTIONS_WORKER_RUNTIME: node
-      ServiceBusConnection: "${SERVICE_BUS_CONNECTION_STRING:-}"
+      ServiceBusConnection: "Endpoint=sb://servicebus-emulator;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
     volumes:
       - ./packages/azure-function-app/http-trigger:/home/site/wwwroot/http-trigger:ro
       - ./packages/azure-function-app/servicebus-trigger:/home/site/wwwroot/servicebus-trigger:ro
@@ -163,17 +210,20 @@ services:
       context: ./packages/servicebus-publisher
       dockerfile: Dockerfile
     container_name: synapse-servicebus-publisher-dev
+    depends_on:
+      - servicebus-emulator
     ports:
       - "3003:3003"
     environment:
       PORT: 3003
-      SERVICE_BUS_CONNECTION_STRING: "${SERVICE_BUS_CONNECTION_STRING:-}"
-      SERVICE_BUS_QUEUE_NAME: "${SERVICE_BUS_QUEUE_NAME:-demo-queue}"
+      SERVICE_BUS_CONNECTION_STRING: "Endpoint=sb://servicebus-emulator;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
+      SERVICE_BUS_QUEUE_NAME: "demo-queue"
       LOG_LEVEL: debug
       NODE_ENV: development
     volumes:
       - ./packages/servicebus-publisher/src:/app/src:ro
       - ./packages/servicebus-publisher/package.json:/app/package.json:ro
+      - /app/node_modules
     networks:
       - synapse-network
     command: npm run dev

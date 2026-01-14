@@ -28,7 +28,7 @@ WORKDIR /home/site/wwwroot
 COPY package*.json ./
 
 # Install production dependencies only
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Copy compiled JavaScript from builder
 COPY --from=builder /home/site/wwwroot/dist ./dist

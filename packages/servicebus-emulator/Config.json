@@ -1,0 +1,48 @@
+{
+  "UserConfig": {
+    "Logging": {
+      "Type": "Console"
+    },
+    "Namespaces": [
+      {
+        "Name": "sbemulatorns",
+        "Queues": [
+          {
+            "Name": "demo-queue",
+            "Properties": {
+              "MaxDeliveryCount": 10,
+              "LockDuration": "PT1M",
+              "DefaultMessageTimeToLive": "PT1H",
+              "RequiresDuplicateDetection": false,
+              "RequiresSession": false,
+              "EnablePartitioning": false,
+              "EnableBatchedOperations": true
+            }
+          }
+        ],
+        "Topics": [
+          {
+            "Name": "demo-topic",
+            "Properties": {
+              "DefaultMessageTimeToLive": "PT1H",
+              "RequiresDuplicateDetection": false,
+              "EnablePartitioning": false,
+              "EnableBatchedOperations": true
+            },
+            "Subscriptions": [
+              {
+                "Name": "demo-subscription",
+                "Properties": {
+                  "LockDuration": "PT1M",
+                  "RequiresSession": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "MaxDeliveryCount": 10
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
