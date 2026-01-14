@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: azure-function-app
+  namespace: demo-app
+  labels:
+    app: azure-function-app
+    component: synapse-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: azure-function-app
+  template:
+    metadata:
+      labels:
+        app: azure-function-app
+        component: synapse-demo
+    spec:
+      containers:
+      - name: azure-function-app
+        image: <your-registry>/azure-function-app:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        env:
+        - name: AzureWebJobsStorage
+          valueFrom:
+            secretKeyRef:
+              name: synapse-secrets
+              key: AZURE_WEB_JOBS_STORAGE
+        - name: FUNCTIONS_WORKER_RUNTIME
+          valueFrom:
+            configMapKeyRef:
+              name: synapse-config
+              key: FUNCTIONS_WORKER_RUNTIME
+        - name: ServiceBusConnection
+          valueFrom:
+            secretKeyRef:
+              name: synapse-secrets
+              key: SERVICE_BUS_CONNECTION_STRING
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /api/process
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/process
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: azure-function-app
+  namespace: demo-app
+  labels:
+    app: azure-function-app
+    component: synapse-demo
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: azure-function-app

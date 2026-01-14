@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-producer-api
+  namespace: demo-app
+  labels:
+    app: kafka-producer-api
+    component: synapse-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kafka-producer-api
+  template:
+    metadata:
+      labels:
+        app: kafka-producer-api
+        component: synapse-demo
+    spec:
+      containers:
+      - name: kafka-producer-api
+        image: <your-registry>/kafka-producer-api:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 3001
+          protocol: TCP
+        env:
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: synapse-config
+              key: KAFKA_PRODUCER_PORT
+        - name: KAFKA_BROKERS
+          value: "kafka-service:9092"
+        - name: KAFKA_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: synapse-config
+              key: KAFKA_TOPIC
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: synapse-config
+              key: LOG_LEVEL
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-producer-api
+  namespace: demo-app
+  labels:
+    app: kafka-producer-api
+    component: synapse-demo
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3001
+    targetPort: 3001
+    protocol: TCP
+    name: http
+  selector:
+    app: kafka-producer-api
