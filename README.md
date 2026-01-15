@@ -561,7 +561,18 @@ Each package can be run independently for development:
 
 ## ☁️ Cloud Deployment
 
+📖 **[Complete Deployment Guide →](DEPLOYMENT.md)**
+
 The application can be deployed to cloud platforms using the provided configurations:
+
+### Quick Start
+
+For a complete step-by-step deployment guide, see **[DEPLOYMENT.md](DEPLOYMENT.md)** which covers:
+- Full deployment (Azure + Kubernetes)
+- Azure-only deployment
+- Kubernetes-only deployment
+- Testing and verification
+- Troubleshooting
 
 ### Kubernetes Deployment
 
@@ -574,6 +585,8 @@ Deploy to any Kubernetes cluster (AKS, EKS, GKE, or local):
 # Access via port-forward
 kubectl port-forward -n demo-app svc/kafka-producer-api 3001:3001
 ```
+
+**Services:** kafka-producer-api, kafka-consumer-service, servicebus-publisher
 
 **Features:**
 - ✓ Namespace isolation
@@ -593,16 +606,17 @@ Deploy to Azure using Bicep templates:
 # Deploy infrastructure
 ./azure/scripts/deploy.sh dev eastus
 
-# Build and push images to ACR
-# (See azure/README.md for complete instructions)
+# Deploy Function App code
+cd packages/azure-function-app
+npm install && npm run build
+func azure functionapp publish <function-app-name>
 ```
 
 **Azure Resources Created:**
-- ✓ Container Registry (ACR)
 - ✓ Service Bus with queue
 - ✓ Azure Function App
-- ✓ Container Instances
 - ✓ Application Insights
+- ✓ Log Analytics
 - ✓ Storage Account
 
 **Features:**
