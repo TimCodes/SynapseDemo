@@ -8,9 +8,6 @@
     "baseName": {
       "value": "synapse-demo"
     },
-    "acrSku": {
-      "value": "Basic"
-    },
     "serviceBusSku": {
       "value": "Standard"
     },

@@ -1,5 +1,6 @@
 // Main Bicep Template for Synapse Demo Application
-// This template deploys all required Azure resources
+// This template deploys Azure resources for the Function App and Service Bus
+// Note: Kafka services (producer, consumer) are deployed to Kubernetes separately
 
 @description('The environment name (e.g., dev, staging, prod)')
 param environment string = 'dev'
@@ -9,14 +10,6 @@ param location string = resourceGroup().location
 
 @description('The base name for all resources')
 param baseName string = 'synapse-demo'
-
-@description('Container Registry SKU')
-@allowed([
-  'Basic'
-  'Standard'
-  'Premium'
-])
-param acrSku string = 'Basic'
 
 @description('Service Bus SKU')
 @allowed([
@@ -37,7 +30,6 @@ param functionAppPlanSku string = 'Y1'
 
 // Variables
 var uniqueSuffix = uniqueString(resourceGroup().id)
-var containerRegistryName = '${baseName}acr${uniqueSuffix}'
 var serviceBusNamespaceName = '${baseName}-sb-${environment}-${uniqueSuffix}'
 var queueName = 'demo-queue'
 var storageAccountName = '${replace(baseName, '-', '')}st${uniqueSuffix}'
@@ -45,16 +37,6 @@ var appInsightsName = '${baseName}-insights-${environment}'
 var logAnalyticsName = '${baseName}-logs-${environment}'
 var functionAppName = '${baseName}-func-${environment}'
 var appServicePlanName = '${baseName}-plan-${environment}'
-
-// Container Registry
-module containerRegistry 'modules/container-registry.bicep' = {
-  name: 'containerRegistryDeployment'
-  params: {
-    name: containerRegistryName
-    location: location
-    sku: acrSku
-  }
-}
 
 // Service Bus
 module serviceBus 'modules/service-bus.bicep' = {
@@ -119,21 +101,7 @@ module functionApp 'modules/function-app.bicep' = {
   }
 }
 
-// Container Instances (optional - for running other services)
-module containerInstances 'modules/container-instances.bicep' = {
-  name: 'containerInstancesDeployment'
-  params: {
-    baseName: baseName
-    environment: environment
-    location: location
-    containerRegistryName: containerRegistry.outputs.registryName
-    containerRegistryServer: containerRegistry.outputs.registryServer
-  }
-}
-
 // Outputs
-output containerRegistryName string = containerRegistry.outputs.registryName
-output containerRegistryServer string = containerRegistry.outputs.registryServer
 output serviceBusNamespace string = serviceBus.outputs.namespaceName
 output serviceBusConnectionString string = serviceBus.outputs.connectionString
 output queueName string = serviceBus.outputs.queueName

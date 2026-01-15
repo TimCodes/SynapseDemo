@@ -106,18 +106,6 @@ echo -e "${YELLOW}[4/4] Getting deployment outputs...${NC}"
 echo ""
 
 # Get deployment outputs
-CONTAINER_REGISTRY=$(az deployment group show \
-    --name "$DEPLOYMENT_NAME" \
-    --resource-group "$RESOURCE_GROUP" \
-    --query properties.outputs.containerRegistryName.value \
-    -o tsv)
-
-REGISTRY_SERVER=$(az deployment group show \
-    --name "$DEPLOYMENT_NAME" \
-    --resource-group "$RESOURCE_GROUP" \
-    --query properties.outputs.containerRegistryServer.value \
-    -o tsv)
-
 SERVICE_BUS_NAMESPACE=$(az deployment group show \
     --name "$DEPLOYMENT_NAME" \
     --resource-group "$RESOURCE_GROUP" \
@@ -140,10 +128,6 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Deployment Outputs:${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
-echo -e "${YELLOW}Container Registry:${NC}"
-echo "  Name: ${CONTAINER_REGISTRY}"
-echo "  Server: ${REGISTRY_SERVER}"
-echo ""
 echo -e "${YELLOW}Service Bus:${NC}"
 echo "  Namespace: ${SERVICE_BUS_NAMESPACE}"
 echo ""
@@ -156,17 +140,16 @@ echo -e "${YELLOW}========================================${NC}"
 echo -e "${YELLOW}Next Steps:${NC}"
 echo -e "${YELLOW}========================================${NC}"
 echo ""
-echo "1. Build and push Docker images to Container Registry:"
-echo "   az acr login --name ${CONTAINER_REGISTRY}"
-echo "   docker tag kafka-producer-api:latest ${REGISTRY_SERVER}/kafka-producer-api:latest"
-echo "   docker push ${REGISTRY_SERVER}/kafka-producer-api:latest"
-echo ""
-echo "2. Deploy Azure Function code:"
+echo "1. Deploy Azure Function code:"
 echo "   cd packages/azure-function-app"
+echo "   npm install"
 echo "   npm run build"
 echo "   func azure functionapp publish ${FUNCTION_APP_NAME}"
 echo ""
-echo "3. Get Service Bus connection string:"
+echo "2. Deploy Kubernetes services (kafka-producer-api, kafka-consumer-service, servicebus-publisher):"
+echo "   See k8s/README.md for Kubernetes deployment instructions"
+echo ""
+echo "3. Get Service Bus connection string for Kubernetes secrets:"
 echo "   az servicebus namespace authorization-rule keys list \\"
 echo "     --resource-group ${RESOURCE_GROUP} \\"
 echo "     --namespace-name ${SERVICE_BUS_NAMESPACE} \\"

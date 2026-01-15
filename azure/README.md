@@ -2,13 +2,14 @@
 
 This directory contains Azure deployment configurations for the Synapse Demo application using Bicep templates and deployment scripts.
 
+**Note:** This deployment focuses on Azure-native services only (Function App, Service Bus). Kafka-related services (kafka-producer-api, kafka-consumer-service, servicebus-publisher) are deployed to Kubernetes separately (see `k8s/` directory).
+
 ## 📋 Prerequisites
 
 - **Azure CLI** installed and configured
 - **Azure subscription** with appropriate permissions
-- **Docker** installed (for building and pushing images)
 - **Node.js 18+** (for Azure Functions deployment)
-- **Azure Functions Core Tools** (optional, for local testing)
+- **Azure Functions Core Tools** (for deploying function code)
 
 ## 🏗️ Architecture
 
@@ -16,19 +17,19 @@ The Azure deployment creates the following resources:
 
 ### Core Infrastructure
 - **Resource Group** - Container for all resources
-- **Container Registry (ACR)** - Private Docker registry
-- **Storage Account** - For Azure Functions and application data
+- **Storage Account** - For Azure Functions runtime
 - **Service Bus Namespace** - Message queue service
   - Queue: `demo-queue`
 
 ### Compute Resources
 - **Azure Function App** - Serverless functions with HTTP and Service Bus triggers
-- **App Service Plan** - Hosting plan for Azure Functions
-- **Container Instances** (Optional) - For kafka-producer-api and servicebus-publisher
+- **App Service Plan** - Hosting plan for Azure Functions (Consumption or Premium)
 
 ### Monitoring & Observability
 - **Log Analytics Workspace** - Centralized logging
 - **Application Insights** - Application performance monitoring
+
+**Note:** Container Registry and Container Instances are NOT included. All containerized services (Kafka producer, consumer, Service Bus publisher) run in Kubernetes.
 
 ## 📁 Directory Structure
 
@@ -39,14 +40,12 @@ azure/
 │   ├── parameters.dev.json             # Development environment parameters
 │   ├── parameters.prod.json            # Production environment parameters
 │   └── modules/
-│       ├── container-registry.bicep    # ACR module
 │       ├── service-bus.bicep           # Service Bus module
 │       ├── storage-account.bicep       # Storage Account module
 │       ├── log-analytics.bicep         # Log Analytics module
 │       ├── app-insights.bicep          # Application Insights module
 │       ├── app-service-plan.bicep      # App Service Plan module
-│       ├── function-app.bicep          # Azure Function App module
-│       └── container-instances.bicep   # Container Instances module
+│       └── function-app.bicep          # Azure Function App module
 ├── scripts/
 │   ├── deploy.sh                       # Deployment script
 │   └── cleanup.sh                      # Cleanup script
@@ -84,42 +83,12 @@ The script will:
 3. Deploy all Azure resources
 4. Display deployment outputs
 
-**Note**: Initial deployment takes 10-15 minutes.
+**Note**: Initial deployment takes 5-10 minutes.
 
-### Step 3: Build and Push Docker Images
-
-After infrastructure deployment, build and push container images:
+### Step 3: Deploy Azure Function App Code
 
 ```bash
-# Get ACR credentials
-ACR_NAME=$(az deployment group show \
-  --resource-group synapse-demo-dev-rg \
-  --name <deployment-name> \
-  --query properties.outputs.containerRegistryName.value -o tsv)
-
-ACR_SERVER=$(az acr show --name $ACR_NAME --query loginServer -o tsv)
-
-# Login to ACR
-az acr login --name $ACR_NAME
-
-# Build and push images
-docker build -t $ACR_SERVER/kafka-producer-api:latest ./packages/kafka-producer-api
-docker push $ACR_SERVER/kafka-producer-api:latest
-
-docker build -t $ACR_SERVER/kafka-consumer-service:latest ./packages/kafka-consumer-service
-docker push $ACR_SERVER/kafka-consumer-service:latest
-
-docker build -t $ACR_SERVER/azure-function-app:latest ./packages/azure-function-app
-docker push $ACR_SERVER/azure-function-app:latest
-
-docker build -t $ACR_SERVER/servicebus-publisher:latest ./packages/servicebus-publisher
-docker push $ACR_SERVER/servicebus-publisher:latest
-```
-
-### Step 4: Deploy Azure Function App
-
-```bash
-# Get Function App name
+# Get Function App name from deployment outputs
 FUNCTION_APP_NAME=$(az deployment group show \
   --resource-group synapse-demo-dev-rg \
   --name <deployment-name> \
@@ -132,6 +101,8 @@ npm run build
 func azure functionapp publish $FUNCTION_APP_NAME
 ```
 
+**Note:** Kafka-related services (kafka-producer-api, kafka-consumer-service, servicebus-publisher) are deployed to Kubernetes using the manifests in the `k8s/` directory.
+
 ## 🔧 Configuration
 
 ### Environment Parameters
@@ -139,12 +110,10 @@ func azure functionapp publish $FUNCTION_APP_NAME
 Parameters are defined in `parameters.{env}.json` files:
 
 **Development (`parameters.dev.json`):**
-- Container Registry: Basic SKU
 - Service Bus: Standard SKU
 - Function App: Consumption plan (Y1)
 
 **Production (`parameters.prod.json`):**
-- Container Registry: Standard SKU
 - Service Bus: Premium SKU
 - Function App: Elastic Premium plan (EP1)
 
@@ -239,10 +208,8 @@ az ad sp create-for-rbac --name "synapse-demo-github" \
 
 2. **Add GitHub Secrets:**
 
-In your GitHub repository, add these secrets:
+In your GitHub repository, add this secret:
 - `AZURE_CREDENTIALS` - Output from service principal creation
-- `ACR_USERNAME` - Container Registry username
-- `ACR_PASSWORD` - Container Registry password
 
 3. **Trigger Workflow:**
 
@@ -254,13 +221,11 @@ git push origin main
 gh workflow run azure-deploy.yml -f environment=dev
 ```
 
+**Note:** The CI/CD workflow currently deploys Azure Function App only. For Kubernetes services, use the k8s deployment workflow or deploy manually using `kubectl`.
+
 ### Workflow Steps
 
-The GitHub Actions workflow (`.github/workflows/azure-deploy.yml`):
-1. Builds all Docker images
-2. Pushes images to Azure Container Registry
-3. Deploys Azure Function App
-4. Restarts Container Instances to pull latest images
+The GitHub Actions workflow (`.github/workflows/azure-deploy.yml`) deploys the Azure Function App code to the already-provisioned Function App resource.
 
 ## 🗑️ Cleanup
 
@@ -285,18 +250,18 @@ az group delete --name synapse-demo-dev-rg --yes --no-wait
 
 ### Development Environment
 - Use Consumption plan for Functions (pay per execution)
-- Use Basic SKU for Container Registry
 - Use Standard SKU for Service Bus
 - Delete resources when not in use
 
 ### Production Environment
 - Consider Reserved Instances for predictable workloads
-- Use autoscaling for Container Instances
 - Monitor with Azure Cost Management
 
 **Estimated Monthly Costs:**
-- **Development**: $20-50/month
-- **Production**: $100-300/month (depends on usage)
+- **Development**: $10-30/month (Function App + Service Bus + Storage)
+- **Production**: $50-150/month (depends on usage and premium tiers)
+
+**Note:** Kubernetes cluster costs are separate and depend on your cluster provider (AKS, EKS, GKE, on-prem).
 
 ## 🔒 Security Best Practices
 
@@ -321,16 +286,6 @@ az deployment group show \
 az deployment operation group list \
   --resource-group synapse-demo-dev-rg \
   --name <deployment-name>
-```
-
-### Container Registry Access Issues
-
-```bash
-# Enable admin user (if needed)
-az acr update --name $ACR_NAME --admin-enabled true
-
-# Get credentials
-az acr credential show --name $ACR_NAME
 ```
 
 ### Function App Not Working
@@ -376,7 +331,7 @@ az servicebus queue show \
 
 ### Azure Kubernetes Service (AKS)
 
-For AKS deployment, use the Kubernetes manifests in the `k8s/` directory:
+For AKS deployment of the Kubernetes services, use the manifests in the `k8s/` directory:
 
 ```bash
 # Create AKS cluster
@@ -384,49 +339,40 @@ az aks create \
   --resource-group synapse-demo-dev-rg \
   --name synapse-aks \
   --node-count 3 \
-  --enable-managed-identity \
-  --attach-acr $ACR_NAME
+  --enable-managed-identity
 
 # Get credentials
 az aks get-credentials \
   --resource-group synapse-demo-dev-rg \
   --name synapse-aks
 
-# Deploy using kubectl
+# Deploy Kubernetes services (kafka-producer-api, kafka-consumer-service, servicebus-publisher)
 kubectl apply -f k8s/
 ```
 
-### Azure App Service
-
-Deploy individual services as App Service web apps:
-
-```bash
-az appservice plan create \
-  --name synapse-app-plan \
-  --resource-group synapse-demo-dev-rg \
-  --is-linux
-
-az webapp create \
-  --name synapse-kafka-producer \
-  --resource-group synapse-demo-dev-rg \
-  --plan synapse-app-plan \
-  --deployment-container-image-name $ACR_SERVER/kafka-producer-api:latest
-```
+**Note:** You'll need to build and push your container images to a container registry (Docker Hub, ACR, etc.) and update the image references in the k8s manifests.
 
 ## ✅ Validation
 
 After deployment, validate:
 
 1. ✓ All resources created in Azure Portal
-2. ✓ Container Registry contains images
-3. ✓ Function App is running
-4. ✓ Service Bus queue exists
-5. ✓ Application Insights receiving telemetry
-6. ✓ HTTP endpoints accessible
+2. ✓ Function App is running
+3. ✓ Service Bus queue exists
+4. ✓ Application Insights receiving telemetry
+5. ✓ Function App HTTP endpoint accessible
 
 ```bash
 # Quick validation script
 az resource list --resource-group synapse-demo-dev-rg --output table
+
+# Test Function App
+FUNCTION_URL=$(az deployment group show \
+  --resource-group synapse-demo-dev-rg \
+  --name <deployment-name> \
+  --query properties.outputs.functionAppUrl.value -o tsv)
+
+curl $FUNCTION_URL/api/process
 ```
 
 ---

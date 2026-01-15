@@ -78,7 +78,7 @@ k8s/
 
 **Deliverables:**
 - ✅ Complete Bicep infrastructure as code
-- ✅ Modular template architecture (8 modules)
+- ✅ Modular template architecture (6 modules)
 - ✅ Multi-environment support (dev, prod)
 - ✅ Automated deployment scripts
 - ✅ CI/CD pipeline (GitHub Actions)
@@ -87,41 +87,33 @@ k8s/
 
 **Azure Resources:**
 
-1. **Container Registry (ACR)**
-   - Private Docker image registry
-   - Admin user enabled
-   - Basic SKU (dev) / Standard SKU (prod)
-
-2. **Service Bus**
+1. **Service Bus**
    - Namespace with managed identity
    - Queue: `demo-queue`
    - Standard SKU (dev) / Premium SKU (prod)
    - TLS 1.2 minimum
 
-3. **Storage Account**
-   - For Azure Functions and application data
+2. **Storage Account**
+   - For Azure Functions runtime
    - Standard_LRS with hot tier
    - TLS 1.2 enforced
    - Private blob access
 
-4. **Azure Function App**
+3. **Azure Function App**
    - Node.js 18 runtime
    - Linux-based hosting
    - Consumption plan (dev) / Premium plan (prod)
    - Application Insights integration
    - Service Bus trigger configured
+   - HTTP trigger for demo
 
-5. **Container Instances**
-   - kafka-producer-api container
-   - servicebus-publisher container
-   - Public IP with DNS labels
-   - Auto-restart policy
-
-6. **Monitoring Stack**
+4. **Monitoring Stack**
    - Log Analytics Workspace
    - Application Insights
    - 30-day retention
    - Live metrics enabled
+
+**Note:** Container Registry and Container Instances are NOT included. All containerized services (kafka-producer-api, kafka-consumer-service, servicebus-publisher) are deployed to Kubernetes.
 
 **Bicep Template Structure:**
 ```
@@ -131,14 +123,12 @@ azure/
 │   ├── parameters.dev.json               # Dev parameters
 │   ├── parameters.prod.json              # Prod parameters
 │   └── modules/
-│       ├── container-registry.bicep      # ACR module
 │       ├── service-bus.bicep             # Service Bus module
 │       ├── storage-account.bicep         # Storage module
 │       ├── log-analytics.bicep           # Logging module
 │       ├── app-insights.bicep            # Monitoring module
 │       ├── app-service-plan.bicep        # Hosting plan module
-│       ├── function-app.bicep            # Function App module
-│       └── container-instances.bicep     # ACI module
+│       └── function-app.bicep            # Function App module
 ├── scripts/
 │   ├── deploy.sh                         # Deployment automation
 │   └── cleanup.sh                        # Cleanup automation
@@ -149,19 +139,14 @@ azure/
 
 GitHub Actions workflow (`.github/workflows/azure-deploy.yml`):
 - **Trigger:** Push to main or manual dispatch
-- **Jobs:**
-  1. Build and push Docker images to ACR
-  2. Deploy Azure Function App code
-  3. Restart Container Instances with latest images
-- **Security:** Uses Azure service principal
-- **Environment support:** dev and prod
+- **Jobs:** Deploy Azure Function App code to provisioned Function App
 
 **Deployment Workflow:**
 ```bash
-1. Deploy infrastructure:   ./azure/scripts/deploy.sh dev eastus
-2. Build images:            docker build + docker push to ACR
-3. Deploy function code:    func azure functionapp publish
-4. Verify deployment:       Check Azure Portal + test endpoints
+1. Deploy Azure infrastructure:   ./azure/scripts/deploy.sh dev eastus
+2. Deploy function code:           func azure functionapp publish <function-app-name>
+3. Deploy Kubernetes services:     kubectl apply -f k8s/
+4. Verify deployment:              Check Azure Portal + test endpoints
 ```
 
 ---
@@ -484,16 +469,17 @@ While Epic 6 is complete, potential future improvements include:
 
 ## Files Summary
 
-**Total Files Created:** 26 files
+**Total Files Created:** 24 files
 
 **Kubernetes (10 files):**
 - 6 YAML manifests (3 deployments + 1 namespace + 1 configmap + 1 secret + 1 ingress)
 - 2 shell scripts
 - 1 README
+- 1 completion doc
 
-**Azure (15 files):**
+**Azure (13 files):**
 - 1 main Bicep template
-- 8 Bicep modules
+- 6 Bicep modules
 - 2 parameter files
 - 2 shell scripts
 - 1 README
