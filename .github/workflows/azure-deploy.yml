@@ -1,0 +1,72 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+
+env:
+  AZURE_RESOURCE_GROUP: synapse-demo-${{ github.event.inputs.environment || 'dev' }}-rg
+  AZURE_LOCATION: eastus
+  ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+
+jobs:
+  deploy-function-app:
+    name: Deploy Azure Function App
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get Function App name
+        id: function
+        run: |
+          FUNCTION_APP_NAME=$(az deployment group show \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name latest-deployment \
+            --query properties.outputs.functionAppName.value \
+            -o tsv 2>/dev/null || echo "")
+          
+          if [ -z "$FUNCTION_APP_NAME" ]; then
+            echo "Function App not found. Please deploy infrastructure first."
+            exit 1
+          fi
+          
+          echo "function_app_name=$FUNCTION_APP_NAME" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: |
+          cd packages/azure-function-app
+          npm ci
+
+      - name: Build Function App
+        run: |
+          cd packages/azure-function-app
+          npm run build
+
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ steps.function.outputs.function_app_name }}
+          package: packages/azure-function-app

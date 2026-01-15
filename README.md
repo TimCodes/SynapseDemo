@@ -559,6 +559,85 @@ Each package can be run independently for development:
 - Optimized for performance
 - Requires rebuild for code changes
 
+## ☁️ Cloud Deployment
+
+📖 **[Complete Deployment Guide →](DEPLOYMENT.md)**
+
+The application can be deployed to cloud platforms using the provided configurations:
+
+### Quick Start
+
+For a complete step-by-step deployment guide, see **[DEPLOYMENT.md](DEPLOYMENT.md)** which covers:
+- Full deployment (Azure + Kubernetes)
+- Azure-only deployment
+- Kubernetes-only deployment
+- Testing and verification
+- Troubleshooting
+
+### Kubernetes Deployment
+
+Deploy to any Kubernetes cluster (AKS, EKS, GKE, or local):
+
+```bash
+# Deploy all services
+./k8s/deploy.sh
+
+# Access via port-forward
+kubectl port-forward -n demo-app svc/kafka-producer-api 3001:3001
+```
+
+**Services:** kafka-producer-api, kafka-consumer-service, servicebus-publisher
+
+**Features:**
+- ✓ Namespace isolation
+- ✓ ConfigMaps and Secrets management
+- ✓ Health checks and readiness probes
+- ✓ Resource limits and requests
+- ✓ Ingress for HTTP routing
+- ✓ Horizontal scaling support
+
+**Documentation:** [k8s/README.md](k8s/README.md)
+
+### Azure Deployment
+
+Deploy to Azure using Bicep templates:
+
+```bash
+# Deploy infrastructure
+./azure/scripts/deploy.sh dev eastus
+
+# Deploy Function App code
+cd packages/azure-function-app
+npm install && npm run build
+func azure functionapp publish <function-app-name>
+```
+
+**Azure Resources Created:**
+- ✓ Service Bus with queue
+- ✓ Azure Function App
+- ✓ Application Insights
+- ✓ Log Analytics
+- ✓ Storage Account
+
+**Features:**
+- ✓ Infrastructure as Code (Bicep)
+- ✓ Multi-environment support (dev, prod)
+- ✓ CI/CD with GitHub Actions
+- ✓ Monitoring and logging
+- ✓ Automated deployments
+
+**Documentation:** [azure/README.md](azure/README.md)
+
+### Deployment Options Comparison
+
+| Feature | Docker Compose | Kubernetes | Azure |
+|---------|---------------|------------|-------|
+| **Use Case** | Local development | Production clusters | Cloud-native apps |
+| **Scalability** | Limited | High | High |
+| **Cost** | Free | Cluster costs | Pay-per-use |
+| **Complexity** | Low | Medium | Medium |
+| **Setup Time** | 5 minutes | 15-30 minutes | 15-30 minutes |
+
 ## 📚 Additional Resources
 
 ### Kafka Resources
